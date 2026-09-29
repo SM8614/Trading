@@ -22,12 +22,12 @@ else
 fi
 
 echo
-echo "Optional: wake the Mac from sleep automatically at 3:05 PM ET on weekdays so the daily scan isn't missed."
-echo "This needs your Mac password (it runs: sudo pmset repeat wakeorpoweron MTWRF 15:05:00)."
+echo "Optional: wake the Mac from sleep automatically at 2:15 PM ET on weekdays so the daily scan isn't missed."
+echo "This needs your Mac password (it runs: sudo pmset repeat wakeorpoweron MTWRF 14:15:00)."
 echo "Note: the time is in this Mac's time zone ($(date +%Z)). Skip if you're not in US Eastern time or adjust later."
 read -p "Set the wake schedule? [y/N] " ans
 if [[ "$ans" =~ ^[Yy]$ ]]; then
-  sudo pmset repeat wakeorpoweron MTWRF 15:05:00 && echo "Wake schedule set. Check with: pmset -g sched"
+  sudo pmset repeat wakeorpoweron MTWRF 14:15:00 && echo "Wake schedule set. Check with: pmset -g sched"
 fi
 echo
 read -n1 -p "Press any key to close..."

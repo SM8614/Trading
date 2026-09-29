@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0 — 2026-09-29
+
+### Changed
+- **Scan is ~20× faster.** Daily bars now come from Alpaca's consolidated (SIP) feed, 1,000 symbols per request: a full scan of ~10,750 symbols takes about 2 minutes instead of ~38. Yahoo Finance remains as an automatic fallback per chunk.
+- **Scan time moved to 2:30 PM ET** (was 3:20 PM) so even a slow fallback scan finishes before the close. The optional weekday wake moved to 2:15 PM.
+
+### Fixed
+- **Rejected bracket orders.** Sizing and bracket levels used the bid/ask mid from the IEX quote, which could be stale; Alpaca validates against the last trade and rejected orders such as `stop_loss.stop_price must be <= base_price - 0.01`. The latest trade price is now used.
+
 ## 2.1.0 — 2026-09-29
 
 ### Added

@@ -25,10 +25,10 @@ An automated, **paper-money** stock-trading bot for US equities. Every trading d
 
 | Step | When (US Eastern) | What happens |
 |------|-------------------|--------------|
-| **Scan** | 3:20 PM every trading day | Downloads ~100 days of daily prices for every tradable US stock on NYSE / NASDAQ / ARCA (≈10,000 symbols) in batches of 200, drops anything under $5, over $500, or trading under 500k shares/day, and scores the rest from 0 to 1. |
+| **Scan** | 2:30 PM every trading day | Downloads ~100 days of daily prices for every tradable US stock on NYSE / NASDAQ / ARCA (≈10,000 symbols) from Alpaca in batches of 1,000 (about 2 minutes; Yahoo Finance is the fallback), drops anything under $5, over $500, or trading under 500k shares/day, and scores the rest from 0 to 1. |
 | **Buy** | Right after the scan | Buys the top **3** scorers (skipping ones already held) at **$1,000** each, as long as there is budget left and fewer than **10** positions are open. Each buy is a **bracket order**: Alpaca itself holds a +15% take-profit and a −5% stop-loss for it. |
 | **Exit** | Continuously (Alpaca) + every 5 min (bot) | Alpaca sells at +15% or −5% on its own, even if your computer is off. The bot additionally checks every 5 minutes during market hours and sells any position held **10 trading days**. |
-| **Catch up** | Whenever the bot comes back | If the computer was off or asleep at 3:20 PM, the missed scan runs as soon as the bot is running again and the market is open (several missed days → one catch-up scan). |
+| **Catch up** | Whenever the bot comes back | If the computer was off or asleep at 2:30 PM, the missed scan runs as soon as the bot is running again and the market is open (several missed days → one catch-up scan). |
 | **Track** | Always | The **Algo Desk** dashboard at `http://localhost:8765` shows profit, holdings, the latest scan, trades, open orders and the bot log, refreshing every 15 seconds. |
 
 The bot trades a **virtual $10,000 budget** inside the Alpaca paper account (which starts at $100,000). Profit is measured against that $10,000. See [docs/STRATEGY.md](docs/STRATEGY.md#the-virtual-10000-budget).
@@ -52,7 +52,7 @@ The bot trades a **virtual $10,000 budget** inside the Alpaca paper account (whi
    - First run creates a `.venv` and installs dependencies (~1 minute).
    - The bot starts, keeps the Mac awake with `caffeinate`, and opens **Algo Desk** in your browser.
 5. **Leave the Terminal window open.** Closing it (or pressing Ctrl+C) stops the bot. Exits that are already placed with Alpaca keep working regardless.
-6. **Optional — start automatically:** double-click `install_autostart.command` once. The bot then launches every time you log in, and can optionally wake the Mac at 3:05 PM on weekdays. Undo with `uninstall_autostart.command`. See [docs/OPERATIONS.md](docs/OPERATIONS.md#3-starting-automatically-and-catching-up).
+6. **Optional — start automatically:** double-click `install_autostart.command` once. The bot then launches every time you log in, and can optionally wake the Mac at 2:15 PM on weekdays. Undo with `uninstall_autostart.command`. See [docs/OPERATIONS.md](docs/OPERATIONS.md#3-starting-automatically-and-catching-up).
 
 ## Quick start (any OS, manual)
 
@@ -74,7 +74,7 @@ Requires **Python 3.9 or newer**. Alternatively, skip `local_settings.py` and ex
 ```
  9:30 ET  market opens ─┬─ portfolio summary logged (9:31)
                         └─ every 5 min: check positions → sell if +15% / −5% / 10 days held
-15:20 ET  daily scan  ──── score ~10,000 stocks (≈5–20 min) → buy top 3 as bracket orders
+14:30 ET  daily scan  ──── score ~10,000 stocks (≈2 min) → buy top 3 as bracket orders
           (missed because the computer was off? → runs at the next moment the bot is up and the market is open)
 16:00 ET  market close
 16:17 ET  (optional cloud task) refresh the online P&L page
@@ -123,7 +123,7 @@ All settings live in [`config.py`](config.py). The most important:
 | `TARGET_GAIN_PCT` | `0.15` | Take-profit at +15% |
 | `STOP_LOSS_PCT` | `0.05` | Stop-loss at −5% |
 | `MAX_HOLD_DAYS` | `10` | Sell after this many trading days |
-| `SCAN_TIME` | `"15:20"` | Daily scan time, US Eastern |
+| `SCAN_TIME` | `"14:30"` | Daily scan time, US Eastern |
 
 Every setting is explained in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 

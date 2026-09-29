@@ -23,7 +23,7 @@ This document explains how the pieces of Algo fit together: processes and thread
                          └───────────────┬───────────────────────────────┬──────────────────────────┘
                                          │ HTTPS                         │ HTTPS
                           ┌──────────────▼─────────────┐   ┌─────────────▼──────────────┐
-                          │ Alpaca paper trading API   │   │ Yahoo Finance (yfinance)   │
+                          │ Alpaca paper trading API   │   │ Yahoo Finance (fallback)   │
                           │ assets, orders, positions, │   │ daily OHLCV price history  │
                           │ account, clock, quotes     │   │ for the scan               │
                           └────────────────────────────┘   └────────────────────────────┘
@@ -49,7 +49,7 @@ Optionally, a cloud scheduled task runs [`tools/pnl_snapshot.py`](../tools/pnl_s
 - Starts the dashboard server, then runs one monitor pass, a portfolio summary and a scan check immediately at start-up.
 
 #### Catch-up scheduling
-A fixed "run at 15:20" timer is silently skipped when the computer is off or asleep, so the scan is driven by state instead:
+A fixed "run at 14:30" timer is silently skipped when the computer is off or asleep, so the scan is driven by state instead:
 
 1. `_trading_days()` loads Alpaca's trading calendar (±14 days, cached per day), which includes holidays and early closes.
 2. The scan moment for a trading day is `SCAN_TIME`, or 40 minutes before an early close, whichever is earlier.
@@ -62,18 +62,19 @@ Consequences: a missed day is caught up once (several missed days collapse into 
 
 ### `scanner.py` — market scan
 1. `get_tradable_symbols()` — all Alpaca assets that are `active`, `tradable`, `us_equity`, listed on NYSE, NASDAQ or ARCA, and whose symbol has no `.` or `/` (skips share classes like `BRK.B` and odd listings). Roughly 10,000 symbols.
-2. `fetch_ohlcv_batch()` — one `yfinance.download()` call per chunk of **200** symbols, `group_by="ticker"`, ~100 calendar days (≈68 trading days) ending *tomorrow* so today's partial bar is included. Normalises columns to `open/high/low/close/volume` and keeps symbols with ≥30 rows.
+2. `fetch_ohlcv_alpaca()` — one Alpaca `StockBarsRequest` per chunk of **1,000** symbols: daily bars, SIP feed, ~100 calendar days ending 20 minutes ago (the free plan's limit for consolidated data), so today's partial bar is included. A full scan takes about 2 minutes.
+   If a chunk fails, `fetch_ohlcv_batch()` is used for it instead: one `yfinance.download()` call per **200** symbols, `group_by="ticker"`, ~100 calendar days (≈68 trading days) ending *tomorrow* so today's partial bar is included. Normalises columns to `open/high/low/close/volume` and keeps symbols with ≥30 rows.
 3. `passes_basic_filters()` — last close within `[MIN_STOCK_PRICE, MAX_STOCK_PRICE]` and 20-day average volume ≥ `MIN_AVG_VOLUME`.
 4. `signals.score_stock()` on every survivor.
 5. Sorts by composite score and returns the top `MAX_POSITIONS × 3` candidates (extra so already-held names can be skipped).
 
-A 1-second pause between chunks keeps Yahoo's rate limiter happy.
+On the Yahoo fallback, a 1-second pause between chunks keeps its rate limiter happy; a full fallback scan takes ~40 minutes.
 
 ### `signals.py` — scoring
 Five independent indicator functions, each returning 0–1, combined with the weights from `config.py`. Full scoring tables are in [STRATEGY.md](STRATEGY.md#3-the-five-signals).
 
 ### `trader.py` — orders and exits
-- `get_latest_price()` — mid-point of bid/ask from Alpaca's latest quote; falls back to whichever side is non-zero, then to the latest trade price.
+- `get_latest_price()` — Alpaca's latest trade price (the base Alpaca uses to validate bracket levels); falls back to the bid/ask mid-point.
 - `buy_stocks()` — computes available slots (`min(DAILY_BUYS, MAX_POSITIONS − open)`), computes the **virtual budget** (see STRATEGY.md), and submits **bracket** market orders (`time_in_force=GTC`) with a take-profit limit at `price × (1 + TARGET_GAIN_PCT)` and a stop at `price × (1 − STOP_LOSS_PCT)`. Records the buy date in `entries.json`.
 - `monitor_and_exit()` — for each open position computes P&L, trading days held (`numpy.busday_count`), and sells at market if the target, stop, or `MAX_HOLD_DAYS` is reached. Before selling it cancels the position's open bracket legs (otherwise Alpaca would reject the sell because the shares are reserved) and waits 2 s for the cancellations to settle.
 - `print_portfolio_summary()` — logs cash, value and each position.
@@ -112,7 +113,8 @@ All are git-ignored.
 |---------|----------|------|-------|
 | Alpaca Trading API (paper) `paper-api.alpaca.markets` | assets, account, clock, positions, orders, activities, portfolio history | API key + secret headers | Paper endpoint is hard-coded (`paper=True`). |
 | Alpaca Market Data `data.alpaca.markets` | latest quote / trade for sizing and exits | same keys | Free plan uses the IEX feed. |
-| Yahoo Finance via `yfinance` | daily OHLCV for the scan | none | Unofficial API; can rate-limit or change format. |
+| Alpaca Market Data, SIP daily bars | daily OHLCV for the scan | same keys | Free plan: consolidated data older than 15 minutes. |
+| Yahoo Finance via `yfinance` | fallback daily OHLCV for the scan | none | Unofficial API; slow, can rate-limit or change format. |
 | Google Fonts | dashboard typography | none | Page falls back to system fonts offline. |
 
 ---

@@ -3,7 +3,7 @@
 # main.py — Orchestrator & Scheduler
 # =============================================================================
 # This is the entry point. Run it once and it will:
-#   - Every trading day at SCAN_TIME (default 3:20 PM ET):
+#   - Every trading day at SCAN_TIME (default 2:30 PM ET):
 #       1. Scan all US stocks and rank them
 #       2. Buy the top candidates
 #   - Every MONITOR_INTERVAL_SEC seconds during market hours:
@@ -67,7 +67,7 @@ def is_market_open() -> bool:
 # ---------------------------------------------------------------------------
 # Catch-up scheduling
 # ---------------------------------------------------------------------------
-# Instead of a fixed "run at 15:20" timer (which is simply missed when the
+# Instead of a fixed "run at 14:30" timer (which is simply missed when the
 # computer is off), the bot keeps track of the last trading day it scanned for
 # in scan_state.json. Every minute it asks: "which trading day's scan should
 # have happened by now?" If that is newer than the last one done and the market

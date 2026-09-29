@@ -18,7 +18,7 @@ That is roughly 10,000 symbols. ETFs listed on these exchanges are *not* explici
 
 ## 2. Filters
 
-Price history: ~100 calendar days of daily bars from Yahoo Finance, including today's partial bar (the scan runs at 3:20 PM ET). A symbol is scored only if:
+Price history: ~100 calendar days of daily bars from Alpaca's consolidated (SIP) feed, ending 20 minutes ago so it includes today's partial bar (the scan runs at 2:30 PM ET). If Alpaca data fails, Yahoo Finance is used instead. A symbol is scored only if:
 
 | Filter | Rule | Why |
 |--------|------|-----|
@@ -71,7 +71,7 @@ Today's volume ÷ average of the previous 20 days.
 | ≥ 0.7× | 0.3 |
 | < 0.7× | 0.1 |
 
-Because the scan runs before the close, today's volume is partial (roughly 85–90% of a full day), which biases this score slightly downward for every stock equally.
+Because the scan runs at 2:30 PM, today's volume is partial (roughly 70–75% of a full day), which biases this score slightly downward for every stock equally.
 
 ### 3.5 Five-day momentum (weight 20%)
 Percent change in close over the last 5 bars.
@@ -97,14 +97,14 @@ The maximum possible is 1.0. In practice the top of the list usually sits betwee
 
 ## 4. Buy rules
 
-Run once per trading day at **3:20 PM ET**:
+Run once per trading day at **2:30 PM ET**:
 
 1. Rank all scored stocks; keep the top 30 as candidates.
 2. Open slots = `min(DAILY_BUYS, MAX_POSITIONS − positions currently open)` → at most **3** per day, never more than **10** open.
 3. Budget available = virtual account value − value of open positions (see §6).
 4. Walk down the candidate list:
    - skip symbols already held;
-   - price = mid of latest bid/ask (fallbacks: one side, then last trade);
+   - price = latest trade (fallback: mid of bid/ask). Alpaca validates bracket levels against the last trade, so this keeps the stop valid;
    - shares = ⌊ $1,000 ÷ price ⌋ (skip if 0);
    - stop buying for the day if the cost exceeds the remaining budget;
    - submit a **bracket order**: market buy, `GTC`, with
@@ -155,8 +155,9 @@ With a 10-day maximum hold, capital recycles at least every two weeks.
 
 - **No back-test.** Weights and thresholds are hand-picked.
 - **Correlated picks.** On strong market days the top scorers are often in the same sector.
-- **Data source.** Yahoo Finance via `yfinance` is unofficial and can throttle or change format.
-- **Quotes.** The free Alpaca data plan uses the IEX feed; bid/ask can be wide or missing for thin names (the liquidity filter reduces this).
+- **Data source.** The free Alpaca plan only allows consolidated data older than 15 minutes, so the scan sees prices as of 20 minutes earlier. The Yahoo fallback is unofficial, much slower (~40 min) and can throttle.
+- **Quotes.** Latest-trade and quote data on the free plan come from IEX only; prices can lag the wider market slightly.
+- **ETFs included.** Leveraged/inverse ETFs (e.g. TZA, YANG) can score high and be bought.
 - **Gaps.** Stops can fill well below −5% after overnight news.
-- **Partial-day bar.** Volume and the last close are intraday values at 3:20 PM.
+- **Partial-day bar.** Volume and the last close are intraday values at 2:30 PM.
 - **Bot-dependent rules.** The 10-day exit and daily buying only happen while the bot is running.

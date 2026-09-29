@@ -56,7 +56,7 @@ Keep `MAX_POSITIONS × POSITION_SIZE_USD ≈ STARTING_CAPITAL` so the cap and th
 
 | Setting | Default | Effect |
 |---------|---------|--------|
-| `SCAN_TIME` | `"15:20"` | Daily scan start, `HH:MM` **US Eastern** regardless of your computer's time zone. The scan must finish before 16:00 for market orders to fill the same day, so don't set it much later than 15:30. On early-close days the scan moves to 40 minutes before the close. If the computer is off at this time, the scan is caught up later (see OPERATIONS.md). |
+| `SCAN_TIME` | `"14:30"` | Daily scan start, `HH:MM` **US Eastern** regardless of your computer's time zone. The scan takes about 2 minutes (up to ~40 on the Yahoo fallback) and must finish before 16:00 for market orders to fill the same day. On early-close days the scan moves to 40 minutes before the close. If the computer is off at this time, the scan is caught up later (see OPERATIONS.md). |
 | `MONITOR_INTERVAL_SEC` | `300` | Seconds between position checks during market hours. |
 
 The morning summary (09:31 ET) is fixed in `main.py`.

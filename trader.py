@@ -82,17 +82,23 @@ def get_latest_price(data_client: StockHistoricalDataClient, symbol: str) -> flo
     Fetch the latest ask price for a symbol using Alpaca's data API.
     """
     try:
+        # Prefer the last trade: it is what Alpaca uses as the base price when it
+        # validates bracket stop/limit levels. Quotes (IEX feed) can be stale or wide.
+        from alpaca.data.requests import StockLatestTradeRequest
+        try:
+            trades = data_client.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbol))
+            px = float(trades[symbol].price)
+            if px > 0:
+                return px
+        except Exception:
+            pass
         req    = StockLatestQuoteRequest(symbol_or_symbols=symbol)
         quotes = data_client.get_stock_latest_quote(req)
         q = quotes[symbol]
         ask, bid = float(q.ask_price or 0), float(q.bid_price or 0)
         if ask > 0 and bid > 0:
             return (ask + bid) / 2
-        if ask > 0 or bid > 0:
-            return ask or bid
-        from alpaca.data.requests import StockLatestTradeRequest
-        trades = data_client.get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbol))
-        return float(trades[symbol].price)
+        return ask or bid or None
     except Exception as e:
         logger.warning(f"[{symbol}] Could not fetch latest price: {e}")
         return None

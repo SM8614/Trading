@@ -48,11 +48,11 @@ Visit <http://localhost:8765> in any browser on the same computer while the bot 
   "now": "2026-09-29T10:15:00",
   "bot": {
     "started": "…", "scanning": false,
-    "next_scan": "2026-09-29T15:20:00-04:00", // US Eastern, with offset
+    "next_scan": "2026-09-29T14:30:00-04:00", // US Eastern, with offset
     "next_monitor": "…", "last_monitor": "…",
     "catchup_pending": false               // true while a missed scan waits for the market to open
   },
-  "settings": { "scan_time": "15:20", "daily_buys": 3, "max_positions": 10,
+  "settings": { "scan_time": "14:30", "daily_buys": 3, "max_positions": 10,
                 "position_size": 1000, "target": 0.15, "stop": 0.05, "max_hold": 10 },
   "alpaca": {
     "summary":  { "equity": 10180.5, "start": 10000, "total_pl": 180.5, "day_pl": -22.1,

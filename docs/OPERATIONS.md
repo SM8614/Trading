@@ -7,9 +7,9 @@ Day-to-day running, monitoring, maintenance and troubleshooting.
 ## 1. Requirements
 
 - macOS, Linux or Windows with **Python 3.9+** (macOS's built-in `/usr/bin/python3` 3.9 works).
-- Internet access to `paper-api.alpaca.markets`, `data.alpaca.markets` and Yahoo Finance.
+- Internet access to `paper-api.alpaca.markets` and `data.alpaca.markets` (Yahoo Finance is used only as a fallback).
 - A free Alpaca account with **paper** API keys.
-- The computer must be **on and awake at the scan time** (3:20 PM ET) on trading days for buys to happen.
+- The computer must be **on and awake at the scan time** (2:30 PM ET) on trading days for buys to happen.
 
 ## 2. Starting
 
@@ -32,7 +32,7 @@ To keep it running after you close the terminal on Linux: `nohup python main.py 
 ### What you should see
 ```
 Stock Scanner & Paper Trader — STARTING UP
-  Scan time:        15:20 ET (daily)
+  Scan time:        14:30 ET (daily)
 Live dashboard: http://localhost:8765
 Scheduler running. Press Ctrl+C to stop.
 PORTFOLIO SUMMARY …
@@ -43,7 +43,7 @@ PORTFOLIO SUMMARY …
 ### Start at login
 Double-click **`install_autostart.command`** once. It:
 1. adds `start.command` to *System Settings → General → Login Items* (macOS may ask to let Terminal control System Events — click OK), so the bot opens in a Terminal window each time you log in;
-2. optionally (asks first, needs your password) runs `sudo pmset repeat wakeorpoweron MTWRF 15:05:00`, which wakes the Mac from sleep at 3:05 PM on weekdays so the regular scan isn't missed. The time is in the Mac's own time zone. Check it with `pmset -g sched`.
+2. optionally (asks first, needs your password) runs `sudo pmset repeat wakeorpoweron MTWRF 14:15:00`, which wakes the Mac from sleep at 2:15 PM on weekdays so the regular scan isn't missed. The time is in the Mac's own time zone. Check it with `pmset -g sched`.
 
 To undo both, double-click **`uninstall_autostart.command`**.
 
@@ -53,10 +53,10 @@ To undo both, double-click **`uninstall_autostart.command`**.
 
 | The computer was… | What the bot does when it is back |
 |-------------------|-----------------------------------|
-| off / asleep during market hours, back before 3:20 PM | normal day: scans at 3:20 PM |
-| off / asleep at 3:20 PM, back before 3:45 PM the same day | scans immediately |
+| off / asleep during market hours, back before 2:30 PM | normal day: scans at 2:30 PM |
+| off / asleep at 2:30 PM, back before 3:45 PM the same day | scans immediately (15-minute cut-off before the close) |
 | back after 3:45 PM or after the close | marks the scan pending and runs it at the next market open |
-| off for several days | one catch-up scan at the next open, then the regular 3:20 PM scan that day |
+| off for several days | one catch-up scan at the next open, then the regular 2:30 PM scan that day |
 | off at any time with open positions | +15% / −5% exits still executed by Alpaca; the 10-day rule is applied on the first check after the bot is back |
 
 Log lines to look for: `CATCH-UP: the scan for YYYY-MM-DD was missed … Running it now.`
@@ -121,11 +121,12 @@ Edit `config.py`, then restart. See [CONFIGURATION.md](CONFIGURATION.md). Bracke
 | *Add your Alpaca paper API keys first* | `local_settings.py` missing or still has placeholders | Create it from `local_settings.example.py`. |
 | Red banner *Can't reach Alpaca … 401* | wrong or regenerated keys | Update `local_settings.py`, restart. |
 | `Market is closed — skipping scan.` | weekend or holiday | Normal. |
-| Scan finds `0 stocks scored` | Yahoo Finance blocked or changed format | Check internet; `pip install -U yfinance`; test with `python -c "from scanner import fetch_ohlcv_batch; print(fetch_ohlcv_batch(['AAPL']).keys())"`. |
+| Scan finds `0 stocks scored` | Alpaca data unreachable and the Yahoo fallback blocked | Check internet and keys; look for `falling back to Yahoo Finance` in the log; `pip install -U yfinance`; test the fallback with `python -c "from scanner import fetch_ohlcv_batch; print(fetch_ohlcv_batch(['AAPL']).keys())"`. |
 | `Not enough budget left` | budget fully invested | Normal; buys resume when positions close. |
 | `All position slots are full` | `MAX_POSITIONS` reached | Normal. |
+| `stop_loss.stop_price must be <= base_price - 0.01` | bracket levels computed from a stale price | Fixed in 2.2: sizing uses the latest trade price, which Alpaca validates against. |
 | `Failed to place sell order … insufficient qty` | bracket legs still holding shares | The bot cancels legs and waits 2 s; if it repeats, cancel open orders for that symbol in Alpaca and let the next 5-minute check sell. |
-| Nothing bought although the bot runs | Mac asleep at 3:20 PM, or scan still running at the close | The missed scan is caught up at the next open. To avoid the delay, set the weekday wake schedule via `install_autostart.command` or move `SCAN_TIME` earlier. |
+| Nothing bought although the bot runs | Mac asleep at 2:30 PM, or scan still running at the close | The missed scan is caught up at the next open. To avoid the delay, set the weekday wake schedule via `install_autostart.command` or move `SCAN_TIME` earlier. |
 | Bot didn't start after reboot | not installed as a login item, or Mac not logged in | Run `install_autostart.command`. Login items only run after you log in; enable automatic login if the Mac should start unattended. |
 | "Terminal wants to control System Events" | installer adding the login item | Click OK. If you clicked Don't Allow, enable it in System Settings → Privacy & Security → Automation, or add the login item by hand. |
 | Port 8765 already in use | another copy of the bot running | Close the other Terminal window, or change `PORT` in `dashboard.py` and `start.command`. |
@@ -136,7 +137,7 @@ Edit `config.py`, then restart. See [CONFIGURATION.md](CONFIGURATION.md). Bracke
 
 **Will it trade if my Mac is off?** Existing exits (+15% / −5%) yes, because they live on Alpaca. New buys and the 10-day exit wait until the bot is running again; a missed daily scan is then caught up automatically.
 
-**Why buy at 3:20 PM instead of the open?** The signals are measured on nearly complete daily data, and the order fills before the close at a price close to the one scored.
+**Why buy at 2:30 PM instead of the open?** By mid-afternoon most of the day has traded, so the daily signals are close to final, and the order fills well before the close at a price close to the one scored. (It was 3:20 PM originally; it moved earlier to leave room for a slow Yahoo fallback scan.)
 
 **Can I run it in the cloud?** Yes, on any always-on Linux machine: clone, create `local_settings.py`, and run `python main.py` under `systemd` or `tmux`. The dashboard binds to `127.0.0.1`; use an SSH tunnel (`ssh -L 8765:localhost:8765 host`) to view it.
 

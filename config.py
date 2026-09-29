@@ -26,9 +26,9 @@ MIN_STOCK_PRICE      = 5       # Ignore penny stocks below this price
 MIN_AVG_VOLUME       = 500_000 # Minimum average daily volume (liquidity filter)
 
 # --- Scheduling ---
-# The scanner runs before market close (3:20 PM ET) and places buy orders
+# The scanner runs before market close (2:30 PM ET) and places buy orders
 # The monitor runs every 5 minutes during market hours to check for exits
-SCAN_TIME            = "15:20"  # HH:MM Eastern Time — full scan usually takes ~5-20 min, so start early enough to buy before 4:00 close
+SCAN_TIME            = "14:30"  # HH:MM Eastern Time — scan takes ~2-5 min (Alpaca data; up to ~40 min on the Yahoo fallback), leaving room before the 4:00 close
 MONITOR_INTERVAL_SEC = 300      # Check positions every 5 minutes
 
 # --- Scoring Weights (must sum to 1.0) ---

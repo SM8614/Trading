@@ -92,6 +92,30 @@ def fetch_ohlcv_batch(symbols: list[str], lookback_days: int = 100) -> dict:
     return out
 
 
+def fetch_ohlcv_alpaca(data_client, symbols: list[str], lookback_days: int = 100) -> dict:
+    """
+    Download daily OHLCV for many symbols in one Alpaca request (consolidated SIP feed).
+    The free Alpaca plan allows SIP data older than 15 minutes, so the request ends
+    20 minutes ago — that still includes today's partial bar.
+    Returns {symbol: DataFrame[open, high, low, close, volume]}.
+    """
+    from alpaca.data.requests import StockBarsRequest
+    from alpaca.data.timeframe import TimeFrame
+    from alpaca.data.enums import DataFeed
+    end = datetime.now(pytz.utc) - timedelta(minutes=20)
+    req = StockBarsRequest(symbol_or_symbols=symbols, timeframe=TimeFrame.Day,
+                           start=end - timedelta(days=lookback_days), end=end, feed=DataFeed.SIP)
+    bars = data_client.get_stock_bars(req).df
+    out = {}
+    if bars is None or bars.empty:
+        return out
+    for sym, df in bars.groupby(level=0):
+        df = df.droplevel(0)[["open", "high", "low", "close", "volume"]].dropna()
+        if len(df) >= 30:
+            out[sym] = df
+    return out
+
+
 def passes_basic_filters(df: pd.DataFrame) -> bool:
     """
     Quick sanity checks before we bother scoring a stock.
@@ -133,11 +157,20 @@ def run_scan(top_n: int = MAX_POSITIONS * 3) -> list[dict]:
 
     results = []
     errors  = 0
-    CHUNK   = 200
+    CHUNK   = 1000     # symbols per Alpaca request (Yahoo fallback splits into 200s)
+    data_client = StockHistoricalDataClient(ALPACA_API_KEY, ALPACA_SECRET_KEY)
 
-    chunks = [symbols[i:i + CHUNK] for i in range(0, len(symbols), CHUNK)]
-    for n, chunk in enumerate(chunks, 1):
-        frames = fetch_ohlcv_batch(chunk)
+    for i in range(0, len(symbols), CHUNK):
+        chunk = symbols[i:i + CHUNK]
+        try:
+            frames = fetch_ohlcv_alpaca(data_client, chunk)
+            source = "alpaca"
+        except Exception as e:
+            logger.warning(f"Alpaca data failed for chunk {i // CHUNK + 1} ({e}); falling back to Yahoo Finance.")
+            frames, source = {}, "yahoo"
+            for j in range(0, len(chunk), 200):
+                frames.update(fetch_ohlcv_batch(chunk[j:j + 200]))
+                time.sleep(1)
         for sym, df in frames.items():
             try:
                 if passes_basic_filters(df):
@@ -147,8 +180,7 @@ def run_scan(top_n: int = MAX_POSITIONS * 3) -> list[dict]:
             except Exception as e:
                 errors += 1
                 logger.debug(f"Error scoring {sym}: {e}")
-        logger.info(f"  Progress: {min(n * CHUNK, len(symbols))}/{len(symbols)} scanned, {len(results)} passed filters")
-        time.sleep(1)   # be gentle with Yahoo's rate limits
+        logger.info(f"  Progress: {min(i + CHUNK, len(symbols))}/{len(symbols)} scanned ({source}), {len(results)} passed filters")
 
     logger.info(
         f"Scan complete. {len(results)} stocks scored, {errors} errors. "
