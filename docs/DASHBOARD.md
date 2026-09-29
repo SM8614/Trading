@@ -21,7 +21,7 @@ Served by [`dashboard.py`](../dashboard.py) from inside the bot process and open
    - **Theme switch** — *Auto* (follows the operating system), *Light*, *Dark*. Saved in the browser's `localStorage` under `algo-theme`.
    - **Bot** — green *Bot running*; amber, pulsing *Scanning stocks…* during the daily scan; red *Bot not running* if the page can't reach the server.
    - **Market** — open, or closed with the next opening time.
-   - **Next scan in …** — countdown to `SCAN_TIME`.
+   - **Next scan in …** — countdown to the next scheduled scan. Turns amber and reads *Missed scan: runs when market opens* when a catch-up scan is pending.
    - **Updated** — time of the last successful refresh.
    - A red banner appears if Alpaca can't be reached (network or key problem).
 2. **Profit since start** — total P&L in dollars and percent against `STARTING_CAPITAL`, today's P&L, account value, starting amount, invested, free cash, and a one-line summary of the active rules.
@@ -48,8 +48,9 @@ Visit <http://localhost:8765> in any browser on the same computer while the bot 
   "now": "2026-09-29T10:15:00",
   "bot": {
     "started": "…", "scanning": false,
-    "next_scan": "2026-09-29T15:20:00",      // local time of the computer
-    "next_monitor": "…", "last_monitor": "…"
+    "next_scan": "2026-09-29T15:20:00-04:00", // US Eastern, with offset
+    "next_monitor": "…", "last_monitor": "…",
+    "catchup_pending": false               // true while a missed scan waits for the market to open
   },
   "settings": { "scan_time": "15:20", "daily_buys": 3, "max_positions": 10,
                 "position_size": 1000, "target": 0.15, "stop": 0.05, "max_hold": 10 },

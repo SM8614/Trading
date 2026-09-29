@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 — 2026-09-29
+
+### Added
+- **Catch-up scans.** The daily scan is no longer a fixed timer. The bot records the last trading day it scanned (`scan_state.json`) and, every minute, runs any scan that is due, so a scan missed while the computer was off or asleep runs as soon as the bot is back and the market is open. Uses Alpaca's trading calendar (holidays, early closes). Failed scans retry after 10 minutes.
+- **Start at login.** `install_autostart.command` adds the bot to macOS Login Items and can set a weekday 3:05 PM wake; `uninstall_autostart.command` removes both.
+- `start.command` no longer starts a second copy if the bot is already running.
+- Dashboard shows when a missed scan is pending.
+
 ## 2.0.0 — 2026-09-28
 
 First version pushed to GitHub. Starts from the original prototype ("Stock Scanner & Paper Trader") and fixes the problems that kept it from trading.

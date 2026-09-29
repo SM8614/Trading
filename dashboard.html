@@ -216,7 +216,7 @@ function render(){
   const b=S.bot;
   chip("c-bot",b.scanning?"busy":"ok",b.scanning?"Scanning stocks…":"Bot running");
   $("rules").textContent=`Buys up to ${S.settings.daily_buys} a day at ${S.settings.scan_time} ET, $${S.settings.position_size.toLocaleString()} each. Sells at +${S.settings.target*100}%, −${S.settings.stop*100}%, or after ${S.settings.max_hold} trading days.`;
-  chip("c-scan","",`Next scan in ${until(b.next_scan)}`);
+  chip("c-scan",b.catchup_pending?"busy":"",b.catchup_pending?"Missed scan: runs when market opens":`Next scan in ${until(b.next_scan)}`);
   chip("c-upd","","Updated "+new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit"}));
   const ban=$("banner");
   if(S.alpaca_error){ban.hidden=false;ban.textContent="Can't reach Alpaca: "+S.alpaca_error+". Check your internet connection or API keys in config.py.";}else ban.hidden=true;

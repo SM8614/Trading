@@ -16,3 +16,4 @@ last_scan.json
 # Local-only
 _original_backup/
 .DS_Store
+scan_state.json

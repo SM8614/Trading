@@ -13,7 +13,7 @@ This document explains how the pieces of Algo fit together: processes and thread
                          │  ├─ main thread: `schedule` loop (checks every 10 s)                     │
                          │  │    ├─ 09:31 ET  job_morning_summary ──► trader.print_portfolio_summary│
                          │  │    ├─ every 5 min job_monitor_positions ──► trader.monitor_and_exit   │
-                         │  │    └─ 15:20 ET  job_scan_and_buy ──► scanner.run_scan ──► signals     │
+                         │  │    └─ every 1 min job_scan_check ─► (due?) job_scan_and_buy ─► scanner│
                          │  │                                       └──► trader.buy_stocks          │
                          │  └─ daemon thread: dashboard HTTP server on 127.0.0.1:8765               │
                          │         GET /            → dashboard.html (Algo Desk)                    │
@@ -42,11 +42,22 @@ Optionally, a cloud scheduled task runs [`tools/pnl_snapshot.py`](../tools/pnl_s
 
   | Job | Schedule | Does |
   |-----|----------|------|
-  | `job_scan_and_buy` | daily at `SCAN_TIME` ET | skips if market closed → `run_scan()` → `buy_stocks()` → writes `last_scan.json` |
+  | `job_scan_check` | every minute | decides whether a scan is due (today's, or a missed one) and runs `job_scan_and_buy` → `run_scan()` → `buy_stocks()` → writes `last_scan.json` and `scan_state.json` |
   | `job_monitor_positions` | every `MONITOR_INTERVAL_SEC` | skips if market closed → `monitor_and_exit()` |
   | `job_morning_summary` | daily 09:31 ET | logs cash, value and positions |
 
-- Starts the dashboard server, then runs one monitor pass and a portfolio summary immediately at start-up.
+- Starts the dashboard server, then runs one monitor pass, a portfolio summary and a scan check immediately at start-up.
+
+#### Catch-up scheduling
+A fixed "run at 15:20" timer is silently skipped when the computer is off or asleep, so the scan is driven by state instead:
+
+1. `_trading_days()` loads Alpaca's trading calendar (±14 days, cached per day), which includes holidays and early closes.
+2. The scan moment for a trading day is `SCAN_TIME`, or 40 minutes before an early close, whichever is earlier.
+3. `due_scan_day()` = the most recent trading day whose scan moment has passed.
+4. `scan_state.json` stores `last_scan_for`, the trading day the last *completed* scan covered.
+5. Every minute, if `due_scan_day() > last_scan_for` and the market is open with at least 15 minutes left before the close, the scan runs and `last_scan_for` is updated. If the market is closed, the scan stays pending until the next open.
+
+Consequences: a missed day is caught up once (several missed days collapse into one scan); today's regular scan still runs later the same day; a failed scan is retried after 10 minutes; on the very first run the state starts at the latest due day, so installing the bot never triggers a surprise catch-up.
 - Main loop: publishes `next_scan` / `next_monitor` to the dashboard's shared `BOT` dict, calls `schedule.run_pending()`, sleeps 10 s.
 
 ### `scanner.py` — market scan
@@ -88,6 +99,7 @@ Every tunable parameter. Loads API keys from `local_settings.py` or environment 
 | `trader.log` | `logging` in `main.py` | Complete history of scans, orders, exits and errors. Append-only. |
 | `entries.json` | `trader.py` | `{symbol: "YYYY-MM-DD"}` buy date per open position, used for the max-hold rule. Entries are removed when the bot sells. Positions found without an entry are stamped with today's date. |
 | `last_scan.json` | `main.py` | `{time, candidates:[…score dicts…], bought:[symbols]}` from the latest scan, shown on the dashboard. |
+| `scan_state.json` | `main.py` | `{last_scan_for: "YYYY-MM-DD"}` — trading day of the last completed scan; drives catch-up. Delete it to reset tracking. |
 | `.venv/` | `start.command` | Python virtual environment. |
 
 All are git-ignored.
@@ -108,6 +120,7 @@ All are git-ignored.
 ## 5. Concurrency and failure behaviour
 
 - Jobs run sequentially on the main thread; a long scan delays the next monitor pass rather than overlapping it.
+- Sleep and wake: the process is frozen while the Mac sleeps; on wake the next minute's scan check notices a missed scan and catches up.
 - Every job is wrapped in `try/except` and logs the error with a traceback, so one failure never stops the scheduler.
 - Exits placed as bracket legs live on Alpaca's servers, so +15% / −5% protection continues when the bot or the computer is off. Only the scan/buy step and the 10-day rule need the bot running.
 - If the process dies, `start.command` keeps the Terminal window open and prints "The bot has stopped" under the traceback.

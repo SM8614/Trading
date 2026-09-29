@@ -27,7 +27,7 @@ HDRS = {"APCA-API-KEY-ID": ALPACA_API_KEY, "APCA-API-SECRET-KEY": ALPACA_SECRET_
 
 # Shared with main.py
 BOT = {"started": datetime.now().isoformat(), "next_scan": None, "next_monitor": None,
-       "last_monitor": None, "scanning": False}
+       "last_monitor": None, "scanning": False, "catchup_pending": False}
 
 _cache = {"t": 0, "data": None}
 _lock = threading.Lock()

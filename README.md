@@ -28,6 +28,7 @@ An automated, **paper-money** stock-trading bot for US equities. Every trading d
 | **Scan** | 3:20 PM every trading day | Downloads ~100 days of daily prices for every tradable US stock on NYSE / NASDAQ / ARCA (≈10,000 symbols) in batches of 200, drops anything under $5, over $500, or trading under 500k shares/day, and scores the rest from 0 to 1. |
 | **Buy** | Right after the scan | Buys the top **3** scorers (skipping ones already held) at **$1,000** each, as long as there is budget left and fewer than **10** positions are open. Each buy is a **bracket order**: Alpaca itself holds a +15% take-profit and a −5% stop-loss for it. |
 | **Exit** | Continuously (Alpaca) + every 5 min (bot) | Alpaca sells at +15% or −5% on its own, even if your computer is off. The bot additionally checks every 5 minutes during market hours and sells any position held **10 trading days**. |
+| **Catch up** | Whenever the bot comes back | If the computer was off or asleep at 3:20 PM, the missed scan runs as soon as the bot is running again and the market is open (several missed days → one catch-up scan). |
 | **Track** | Always | The **Algo Desk** dashboard at `http://localhost:8765` shows profit, holdings, the latest scan, trades, open orders and the bot log, refreshing every 15 seconds. |
 
 The bot trades a **virtual $10,000 budget** inside the Alpaca paper account (which starts at $100,000). Profit is measured against that $10,000. See [docs/STRATEGY.md](docs/STRATEGY.md#the-virtual-10000-budget).
@@ -51,6 +52,7 @@ The bot trades a **virtual $10,000 budget** inside the Alpaca paper account (whi
    - First run creates a `.venv` and installs dependencies (~1 minute).
    - The bot starts, keeps the Mac awake with `caffeinate`, and opens **Algo Desk** in your browser.
 5. **Leave the Terminal window open.** Closing it (or pressing Ctrl+C) stops the bot. Exits that are already placed with Alpaca keep working regardless.
+6. **Optional — start automatically:** double-click `install_autostart.command` once. The bot then launches every time you log in, and can optionally wake the Mac at 3:05 PM on weekdays. Undo with `uninstall_autostart.command`. See [docs/OPERATIONS.md](docs/OPERATIONS.md#3-starting-automatically-and-catching-up).
 
 ## Quick start (any OS, manual)
 
@@ -73,6 +75,7 @@ Requires **Python 3.9 or newer**. Alternatively, skip `local_settings.py` and ex
  9:30 ET  market opens ─┬─ portfolio summary logged (9:31)
                         └─ every 5 min: check positions → sell if +15% / −5% / 10 days held
 15:20 ET  daily scan  ──── score ~10,000 stocks (≈5–20 min) → buy top 3 as bracket orders
+          (missed because the computer was off? → runs at the next moment the bot is up and the market is open)
 16:00 ET  market close
 16:17 ET  (optional cloud task) refresh the online P&L page
 ```
@@ -94,6 +97,8 @@ Weekends and market holidays are skipped automatically (the bot asks Alpaca's ma
 ├── config.py                  # All tunable settings (no secrets)
 ├── local_settings.example.py  # Template for your private API keys
 ├── start.command              # macOS double-click launcher
+├── install_autostart.command  # start the bot at every login (+ optional weekday wake)
+├── uninstall_autostart.command
 ├── requirements.txt
 ├── tools/
 │   └── pnl_snapshot.py        # Read-only P&L snapshot used by the online P&L page
@@ -101,7 +106,7 @@ Weekends and market holidays are skipped automatically (the bot asks Alpaca's ma
 └── legacy/                    # Earlier prototype, not used by the bot
 ```
 
-Files the bot creates at runtime (all git-ignored): `trader.log`, `entries.json` (buy date per position), `last_scan.json` (latest scan results), `.venv/`.
+Files the bot creates at runtime (all git-ignored): `trader.log`, `entries.json` (buy date per position), `last_scan.json` (latest scan results), `scan_state.json` (last trading day scanned, for catch-up), `.venv/`.
 
 ---
 

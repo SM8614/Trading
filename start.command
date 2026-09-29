@@ -1,6 +1,12 @@
 #!/bin/bash
 # Double-click to start the paper trader. Keep this window open; close it (or Ctrl+C) to stop.
 cd "$(dirname "$0")"
+# Already running? Just show the dashboard instead of starting a second copy.
+if curl -s -o /dev/null --max-time 2 http://localhost:8765/; then
+  echo "The bot is already running. Opening the dashboard."
+  open http://localhost:8765
+  exit 0
+fi
 if [ ! -f local_settings.py ] || grep -q "YOUR_PAPER" local_settings.py; then
   echo "Add your Alpaca paper API keys first: copy local_settings.example.py to local_settings.py and fill it in."; read -n1 -p "Press any key to close..."; exit 1
 fi
