@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlgoTrader — Stock Screener & Paper Trader</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #238636;
+    --accent-hover: #2ea043;
+    --blue: #1f6feb;
+    --blue-hover: #388bfd;
+    --red: #da3633;
+    --yellow: #d29922;
+    --green: #3fb950;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .logo { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .logo span { background: linear-gradient(135deg, #238636, #388bfd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .market-badge { font-size: 12px; padding: 4px 10px; border-radius: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; background: var(--surface); border-radius: var(--radius); padding: 4px; margin-bottom: 24px; width: fit-content; }
+  .tab { padding: 8px 20px; border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--muted); border: none; background: none; transition: all .15s; }
+  .tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .tab:hover:not(.active) { color: var(--text); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 16px; }
+
+  /* ── Grid ── */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media(max-width:900px) { .grid-4 { grid-template-columns: 1fr 1fr; } .grid-2 { grid-template-columns: 1fr; } }
+  @media(max-width:500px) { .grid-4 { grid-template-columns: 1fr; } }
+
+  /* ── Stat boxes ── */
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .stat-val { font-size: 24px; font-weight: 700; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .yellow { color: var(--yellow); }
+  .blue { color: #60a5fa; }
+
+  /* ── Buttons ── */
+  .btn { padding: 8px 18px; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-green { background: var(--accent); color: #fff; }
+  .btn-green:hover { background: var(--accent-hover); }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: var(--blue-hover); }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover { background: #f85149; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--blue); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid #21262d; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1c2128; }
+
+  /* ── Score bar ── */
+  .score-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; min-width: 60px; }
+  .score-fill { height: 6px; border-radius: 3px; }
+
+  /* ── Signal pills ── */
+  .signals { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sig-pill { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #1f6feb22; border: 1px solid #1f6feb55; color: #60a5fa; white-space: nowrap; }
+  .sig-pill.warn { background: #d2992222; border-color: #d2992255; color: var(--yellow); }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  input, select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; font-size: 14px; color: var(--text); outline: none; transition: border .15s; }
+  input:focus, select:focus { border-color: var(--blue); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Alert / toast ── */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .alert.info { background: #1f6feb22; border: 1px solid #1f6feb55; color: #60a5fa; }
+  .alert.success { background: #23863622; border: 1px solid #23863655; color: var(--green); }
+  .alert.error { background: #da363322; border: 1px solid #da363355; color: #f85149; }
+  .alert.show { display: block; }
+
+  /* ── Loader ── */
+  .loader { display: none; text-align: center; padding: 40px; color: var(--muted); }
+  .loader.show { display: block; }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { font-size: 14px; }
+
+  /* ── Setup section ── */
+  .setup-box { background: linear-gradient(135deg, #1f6feb15, #23863615); border: 1px solid #1f6feb44; border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .setup-box h3 { font-size: 15px; margin-bottom: 8px; }
+  .setup-box p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .setup-box a { color: var(--blue-hover); text-decoration: none; }
+
+  /* ── Position cards ── */
+  .pos-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .pos-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .pos-ticker { font-weight: 700; font-size: 16px; }
+  .pos-gain { font-size: 15px; font-weight: 700; }
+  .pos-details { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; }
+  .progress-fill { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--blue), var(--green)); }
+
+  /* ── Log ── */
+  .log { background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; max-height: 220px; overflow-y: auto; color: #7ee787; }
+  .log-line { margin-bottom: 3px; }
+  .log-line.muted { color: var(--muted); }
+  .log-line.err { color: var(--red); }
+
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .tag-green { background: #23863633; color: var(--green); border: 1px solid #23863655; border-radius: 20px; padding: 2px 10px; font-size: 12px; }
+  .tag-yellow { background: #d2992233; color: var(--yellow); border: 1px solid #d2992255; border-radius: 20px; padding: 2px 10px; font-size: 12px; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .row .form-group { flex: 1; min-width: 120px; margin-bottom: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">📈 <span>AlgoTrader</span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="market-badge" id="mktStatus">⏰ Market hours: 9:30–16:00 ET</div>
+      <div class="market-badge" id="timeDisplay">--:-- ET</div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('screener')">🔍 Screener</button>
+    <button class="tab" onclick="switchTab('trading')">💼 Paper Trading</button>
+    <button class="tab" onclick="switchTab('positions')">📊 Positions</button>
+    <button class="tab" onclick="switchTab('setup')">⚙️ Setup</button>
+  </div>
+
+  <!-- ══ SCREENER PANEL ══════════════════════════════════════════════════ -->
+  <div class="panel active" id="panel-screener">
+
+    <div class="section-header">
+      <div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px;">Stock Screener</div>
+        <div style="font-size:13px;color:var(--muted);">Scans stocks for technical signals suggesting next-day upside</div>
+      </div>
+      <button class="btn btn-blue" id="runBtn" onclick="runScreener()">▶ Run Screener</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">Filters</div>
+      <div class="row" style="gap:12px;">
+        <div class="form-group">
+          <label>Min Score (0–5)</label>
+          <input type="number" id="minScore" value="2" min="0" max="5" step="0.5">
+        </div>
+        <div class="form-group">
+          <label>Min Price ($)</label>
+          <input type="number" id="minPrice" value="5" min="1">
+        </div>
+        <div class="form-group">
+          <label>Max Price ($)</label>
+          <input type="number" id="maxPrice" value="10000" min="1">
+        </div>
+        <div class="form-group">
+          <label>Universe</label>
+          <select id="universe">
+            <option value="full">Full (120 stocks)</option>
+            <option value="sp30">Dow Jones 30</option>
+            <option value="large">Large Cap Only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert info" id="screenerAlert"></div>
+    <div class="loader" id="screenerLoader">
+      <div class="spinner"></div>
+      <div>Scanning stocks & computing technical indicators…<br><span style="font-size:12px;">This takes 60–120 seconds for the full universe</span></div>
+    </div>
+
+    <div id="screenerResults">
+      <div class="empty">
+        <div class="empty-icon">🔍</div>
+        <p>Click <strong>Run Screener</strong> to scan stocks for bullish technical signals.</p>
+        <p style="margin-top:8px;font-size:12px;">Signals: RSI recovery · Volume surge · MACD crossover · 52w low bounce · Momentum</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRADING PANEL ══════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-trading">
+
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px;">Paper Trading</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Execute trades via Alpaca Paper Trading — no real money involved</div>
+
+    <div class="alert error" id="tradingAlert"></div>
+    <div class="alert success" id="tradingSuccess"></div>
+
+    <!-- Account summary -->
+    <div class="grid-4" id="accountStats">
+      <div class="stat"><div class="stat-label">Portfolio Value</div><div class="stat-val" id="portVal">—</div></div>
+      <div class="stat"><div class="stat-label">Cash</div><div class="stat-val" id="cashVal">—</div></div>
+      <div class="stat"><div class="stat-label">Buying Power</div><div class="stat-val" id="buyPow">—</div></div>
+      <div class="stat"><div class="stat-label">Day Trades</div><div class="stat-val" id="dtCount">—</div></div>
+    </div>
+
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:20px;" onclick="loadAccount()">↻ Refresh Account</button>
+
+    <hr class="divider">
+
+    <div class="grid-2">
+      <!-- Buy with 15% target -->
+      <div class="card">
+        <div class="card-title">🛒 Buy + Set 15% Profit Target</div>
+        <div class="form-group">
+          <label>Ticker Symbol</label>
+          <input type="text" id="buyTicker" placeholder="e.g. AAPL" style="text-transform:uppercase;">
+        </div>
+        <div class="form-group">
+          <label>Amount to Invest ($)</label>
+          <input type="number" id="buyAmount" value="1000" min="1">
+          <div class="hint">Will place a market buy, then auto-set a limit sell at +15%</div>
+        </div>
+        <div class="form-group">
+          <label>Profit Target (%)</label>
+          <input type="number" id="targetPct" value="15" min="1" max="100">
+        </div>
+        <button class="btn btn-green" onclick="executeBuy()" style="width:100%;">
+          ✅ Buy & Set Target
+        </button>
+      </div>
+
+      <!-- Manual sell -->
+      <div class="card">
+        <div class="card-title">📤 Manual Sell</div>
+        <div class="form-group">
+          <label>Ticker Symbol</label>
+          <input type="text" id="sellTicker" placeholder="e.g. AAPL" style="text-transform:uppercase;">
+        </div>
+        <div class="form-group">
+          <label>Quantity (shares)</label>
+          <input type="number" id="sellQty" placeholder="e.g. 10" min="0.001" step="0.001">
+        </div>
+        <div class="form-group">
+          <label>Order Type</label>
+          <select id="sellType">
+            <option value="market">Market (immediate)</option>
+            <option value="limit">Limit (set price)</option>
+          </select>
+        </div>
+        <div class="form-group" id="limitPriceGroup" style="display:none;">
+          <label>Limit Price ($)</label>
+          <input type="number" id="limitPrice" placeholder="e.g. 185.50" step="0.01">
+        </div>
+        <button class="btn btn-red" onclick="executeSell()" style="width:100%;">
+          ✖ Sell
+        </button>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="card" style="margin-top:4px;">
+      <div class="card-title">📋 Activity Log</div>
+      <div class="log" id="tradeLog">
+        <div class="log-line muted">-- No trades yet. Connect your Alpaca keys in Setup to begin. --</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ POSITIONS PANEL ═════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-positions">
+    <div class="section-header">
+      <div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px;">Open Positions</div>
+        <div style="font-size:13px;color:var(--muted);">Live positions from your Alpaca paper account</div>
+      </div>
+      <button class="btn btn-ghost" onclick="loadPositions()">↻ Refresh</button>
+    </div>
+
+    <div class="alert error" id="posAlert"></div>
+    <div id="positionsContent">
+      <div class="empty"><div class="empty-icon">📭</div><p>Connect your Alpaca keys in Setup, then refresh.</p></div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Open orders -->
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px;">Open Orders</div>
+    <div id="ordersContent">
+      <div class="empty"><div class="empty-icon">📋</div><p>No open orders.</p></div>
+    </div>
+  </div>
+
+  <!-- ══ SETUP PANEL ════════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-setup">
+    <div style="font-size:18px;font-weight:700;margin-bottom:16px;">Setup & Configuration</div>
+
+    <div class="setup-box">
+      <h3>🔑 How to get your Alpaca Paper Trading keys</h3>
+      <p>
+        1. Go to <a href="https://alpaca.markets" target="_blank">alpaca.markets</a> and create a free account.<br>
+        2. In the dashboard, switch to <strong>Paper Trading</strong> mode.<br>
+        3. Go to <strong>API Keys</strong> → Generate new keys.<br>
+        4. Paste them below. Paper trading uses fake money — no risk!<br>
+        <br>
+        ⚠️ Keys are stored only in your browser's local storage. They are never sent anywhere except directly to Alpaca's API.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Alpaca API Keys</div>
+      <div class="form-group">
+        <label>API Key ID</label>
+        <input type="text" id="apiKey" placeholder="PKTEST..." autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Secret Key</label>
+        <input type="password" id="secretKey" placeholder="••••••••••••••••" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Mode</label>
+        <select id="tradingMode">
+          <option value="paper">Paper Trading (recommended)</option>
+          <option value="live" disabled>Live Trading (not recommended for bots)</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-green" onclick="saveKeys()">💾 Save Keys</button>
+        <button class="btn btn-ghost" onclick="testConnection()">🔌 Test Connection</button>
+        <button class="btn btn-red btn-sm" onclick="clearKeys()">Clear</button>
+      </div>
+      <div class="alert info" id="setupAlert" style="margin-top:14px;"></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="card">
+      <div class="card-title">Strategy Settings</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Default Profit Target (%)</label>
+          <input type="number" id="defaultTarget" value="15" min="1" max="100">
+          <div class="hint">Sell limit placed at this % above entry price</div>
+        </div>
+        <div class="form-group">
+          <label>Max Investment per Trade ($)</label>
+          <input type="number" id="maxPerTrade" value="1000" min="10">
+          <div class="hint">Max notional value for a single buy order</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="saveSettings()">Save Settings</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="card">
+      <div class="card-title">⚠️ Important Disclaimer</div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.7;">
+        This tool is for <strong style="color:var(--text)">educational and research purposes only</strong>. 
+        Technical signals do not guarantee future price movements. Past backtested performance does not predict future results. 
+        Day trading involves substantial risk of loss. The pattern day trader (PDT) rule requires a minimum $25,000 account 
+        balance to make more than 3 day trades per week. Always consult a licensed financial advisor before trading with real money.
+        <br><br>
+        This app only works with <strong style="color:var(--text)">paper trading</strong> (simulated). 
+        We do not connect to real brokerage accounts by default.
+      </p>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let alpacaKey    = localStorage.getItem('alpaca_key') || '';
+let alpacaSecret = localStorage.getItem('alpaca_secret') || '';
+const PAPER_BASE = 'https://paper-api.alpaca.markets/v2';
+const DATA_BASE  = 'https://data.alpaca.markets/v2';
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`#panel-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'positions') loadPositions();
+  if (name === 'trading')   loadAccount();
+}
+
+// ── Time display ───────────────────────────────────────────────────────────
+function updateTime() {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const h = et.getHours(), m = et.getMinutes();
+  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} ET`;
+  document.getElementById('timeDisplay').textContent = timeStr;
+  const isOpen = h >= 9 && (h < 16 || (h === 9 && m >= 30));
+  const mkt = document.getElementById('mktStatus');
+  mkt.textContent = isOpen ? '🟢 Market Open' : '🔴 Market Closed';
+  mkt.style.color = isOpen ? 'var(--green)' : 'var(--muted)';
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// ── Load saved keys ────────────────────────────────────────────────────────
+if (alpacaKey)    document.getElementById('apiKey').value = alpacaKey;
+if (alpacaSecret) document.getElementById('secretKey').value = alpacaSecret;
+
+// ── Setup ─────────────────────────────────────────────────────────────────
+function saveKeys() {
+  alpacaKey    = document.getElementById('apiKey').value.trim();
+  alpacaSecret = document.getElementById('secretKey').value.trim();
+  localStorage.setItem('alpaca_key', alpacaKey);
+  localStorage.setItem('alpaca_secret', alpacaSecret);
+  showAlert('setupAlert', 'success', '✅ Keys saved to browser storage.');
+}
+
+function clearKeys() {
+  localStorage.removeItem('alpaca_key');
+  localStorage.removeItem('alpaca_secret');
+  alpacaKey = alpacaSecret = '';
+  document.getElementById('apiKey').value = '';
+  document.getElementById('secretKey').value = '';
+  showAlert('setupAlert', 'info', 'Keys cleared.');
+}
+
+function saveSettings() {
+  localStorage.setItem('default_target', document.getElementById('defaultTarget').value);
+  localStorage.setItem('max_per_trade', document.getElementById('maxPerTrade').value);
+  showAlert('setupAlert', 'success', '✅ Settings saved.');
+}
+
+async function testConnection() {
+  if (!alpacaKey || !alpacaSecret) { showAlert('setupAlert','error','Enter your API keys first.'); return; }
+  try {
+    const data = await alpacaGet('account');
+    showAlert('setupAlert', 'success',
+      `✅ Connected! Account status: ${data.status} | Portfolio: $${parseFloat(data.portfolio_value).toLocaleString('en-US',{minimumFractionDigits:2})}`);
+  } catch(e) {
+    showAlert('setupAlert', 'error', `❌ Connection failed: ${e.message}`);
+  }
+}
+
+// ── Alpaca API helpers ────────────────────────────────────────────────────
+async function alpacaGet(endpoint, base = PAPER_BASE) {
+  const r = await fetch(`${base}/${endpoint}`, {
+    headers: { 'APCA-API-KEY-ID': alpacaKey, 'APCA-API-SECRET-KEY': alpacaSecret }
+  });
+  if (!r.ok) throw new Error(`Alpaca API error: ${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function alpacaPost(endpoint, body) {
+  const r = await fetch(`${PAPER_BASE}/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'APCA-API-KEY-ID': alpacaKey,
+      'APCA-API-SECRET-KEY': alpacaSecret,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message || `Error ${r.status}`);
+  return data;
+}
+
+async function alpacaDelete(endpoint) {
+  const r = await fetch(`${PAPER_BASE}/${endpoint}`, {
+    method: 'DELETE',
+    headers: { 'APCA-API-KEY-ID': alpacaKey, 'APCA-API-SECRET-KEY': alpacaSecret }
+  });
+  return r.status;
+}
+
+// ── Account ────────────────────────────────────────────────────────────────
+async function loadAccount() {
+  if (!alpacaKey) { return; }
+  try {
+    const d = await alpacaGet('account');
+    const pv = parseFloat(d.portfolio_value);
+    const cash = parseFloat(d.cash);
+    const bp = parseFloat(d.buying_power);
+    const dt = d.daytrade_count || 0;
+    document.getElementById('portVal').textContent = '$' + pv.toLocaleString('en-US',{minimumFractionDigits:2});
+    document.getElementById('cashVal').textContent = '$' + cash.toLocaleString('en-US',{minimumFractionDigits:2});
+    document.getElementById('buyPow').textContent  = '$' + bp.toLocaleString('en-US',{minimumFractionDigits:2});
+    document.getElementById('dtCount').textContent = `${dt}/3`;
+    document.getElementById('dtCount').className = 'stat-val ' + (dt >= 3 ? 'red' : dt >= 2 ? 'yellow' : 'green');
+  } catch(e) {
+    // silently fail if not connected
+  }
+}
+
+// ── Positions ──────────────────────────────────────────────────────────────
+async function loadPositions() {
+  if (!alpacaKey) {
+    document.getElementById('positionsContent').innerHTML =
+      '<div class="alert info show">Connect your Alpaca keys in the Setup tab first.</div>';
+    return;
+  }
+  try {
+    const positions = await alpacaGet('positions');
+    const orders    = await alpacaGet('orders?status=open&limit=20');
+    renderPositions(positions);
+    renderOrders(orders);
+  } catch(e) {
+    showAlert('posAlert', 'error', `Failed to load positions: ${e.message}`);
+  }
+}
+
+function renderPositions(positions) {
+  const el = document.getElementById('positionsContent');
+  if (!positions.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>No open positions.</p></div>';
+    return;
+  }
+  el.innerHTML = positions.map(p => {
+    const entry   = parseFloat(p.avg_entry_price);
+    const current = parseFloat(p.current_price);
+    const pl      = parseFloat(p.unrealized_pl);
+    const gainPct = ((current - entry) / entry * 100);
+    const target  = entry * 1.15;
+    const progress = Math.min(100, Math.max(0, (gainPct / 15) * 100));
+    const color   = gainPct >= 0 ? 'var(--green)' : 'var(--red)';
+    return `
+    <div class="pos-card">
+      <div class="pos-header">
+        <div>
+          <div class="pos-ticker">${p.symbol}</div>
+          <div style="font-size:12px;color:var(--muted)">${parseFloat(p.qty)} shares · Entry $${entry.toFixed(2)}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="pos-gain" style="color:${color}">${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%</div>
+          <div style="font-size:12px;color:${color}">${pl >= 0 ? '+' : ''}$${pl.toFixed(2)}</div>
+        </div>
+      </div>
+      <div class="pos-details">
+        <span>Current: <strong style="color:var(--text)">$${current.toFixed(2)}</strong></span>
+        <span>Target (+15%): <strong style="color:var(--green)">$${target.toFixed(2)}</strong></span>
+        <span>Market Value: <strong style="color:var(--text)">$${parseFloat(p.market_value).toFixed(2)}</strong></span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${progress}%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">Progress to 15% target: ${progress.toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderOrders(orders) {
+  const el = document.getElementById('ordersContent');
+  if (!orders.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>No open orders.</p></div>';
+    return;
+  }
+  el.innerHTML = `
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Ticker</th><th>Side</th><th>Type</th><th>Qty</th><th>Limit</th><th>Status</th><th>Action</th>
+      </tr></thead>
+      <tbody>
+        ${orders.map(o => `
+        <tr>
+          <td><strong>${o.symbol}</strong></td>
+          <td style="color:${o.side==='buy'?'var(--green)':'var(--red)'}">${o.side.toUpperCase()}</td>
+          <td>${o.type}</td>
+          <td>${o.qty || '—'}</td>
+          <td>${o.limit_price ? '$'+parseFloat(o.limit_price).toFixed(2) : '—'}</td>
+          <td><span class="tag-yellow">${o.status}</span></td>
+          <td><button class="btn btn-red btn-sm" onclick="cancelOrder('${o.id}')">Cancel</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+async function cancelOrder(id) {
+  try {
+    await alpacaDelete(`orders/${id}`);
+    logTrade(`Cancelled order ${id.slice(0,8)}…`);
+    loadPositions();
+  } catch(e) {
+    logTrade(`❌ Cancel failed: ${e.message}`, true);
+  }
+}
+
+// ── Trading ────────────────────────────────────────────────────────────────
+document.getElementById('sellType').addEventListener('change', function() {
+  document.getElementById('limitPriceGroup').style.display = this.value === 'limit' ? '' : 'none';
+});
+
+async function executeBuy() {
+  if (!alpacaKey) { showAlert('tradingAlert','error','Connect your Alpaca keys in Setup first.'); return; }
+  const ticker  = document.getElementById('buyTicker').value.trim().toUpperCase();
+  const amount  = parseFloat(document.getElementById('buyAmount').value);
+  const target  = parseFloat(document.getElementById('targetPct').value);
+  if (!ticker) { showAlert('tradingAlert','error','Enter a ticker symbol.'); return; }
+  if (!amount || amount <= 0) { showAlert('tradingAlert','error','Enter a valid amount.'); return; }
+
+  try {
+    // Market buy
+    const buyOrder = await alpacaPost('orders', {
+      symbol: ticker, side: 'buy', type: 'market',
+      time_in_force: 'day', notional: String(amount.toFixed(2))
+    });
+    logTrade(`✅ BUY ${ticker}: $${amount} market order placed (ID: ${buyOrder.id.slice(0,8)}…)`);
+
+    // Wait a moment, then try to get fill price for limit sell
+    await new Promise(r => setTimeout(r, 1500));
+    let entryPrice = null;
+    try {
+      const pos = await alpacaGet(`positions/${ticker}`);
+      entryPrice = parseFloat(pos.avg_entry_price);
+    } catch(_) {}
+
+    if (entryPrice && entryPrice > 0) {
+      const targetPrice = (entryPrice * (1 + target / 100)).toFixed(2);
+      const qty = (amount / entryPrice).toFixed(4);
+      try {
+        const sellOrder = await alpacaPost('orders', {
+          symbol: ticker, side: 'sell', type: 'limit',
+          time_in_force: 'gtc', qty: qty, limit_price: targetPrice
+        });
+        logTrade(`🎯 SELL LIMIT set: ${ticker} @ $${targetPrice} (+${target}%) for ${qty} shares`);
+        showAlert('tradingSuccess','success',
+          `✅ Bought ${ticker} @ ~$${entryPrice.toFixed(2)}. Sell limit set at $${targetPrice} (+${target}%)`);
+      } catch(e) {
+        logTrade(`⚠️ Buy succeeded but sell limit failed: ${e.message}`, true);
+        showAlert('tradingAlert','error',`Buy placed, but couldn't set sell limit: ${e.message}`);
+      }
+    } else {
+      logTrade(`⚠️ Couldn't get fill price to set sell limit. Check positions manually.`, true);
+      showAlert('tradingSuccess','success',`✅ Buy order placed for ${ticker}. Set sell limit manually once filled.`);
+    }
+    loadAccount();
+  } catch(e) {
+    showAlert('tradingAlert','error', `❌ Trade failed: ${e.message}`);
+    logTrade(`❌ BUY FAILED ${ticker}: ${e.message}`, true);
+  }
+}
+
+async function executeSell() {
+  if (!alpacaKey) { showAlert('tradingAlert','error','Connect your Alpaca keys in Setup first.'); return; }
+  const ticker  = document.getElementById('sellTicker').value.trim().toUpperCase();
+  const qty     = document.getElementById('sellQty').value;
+  const type    = document.getElementById('sellType').value;
+  if (!ticker || !qty) { showAlert('tradingAlert','error','Enter ticker and quantity.'); return; }
+
+  const body = { symbol: ticker, side: 'sell', time_in_force: 'day', qty: String(qty) };
+  if (type === 'market') {
+    body.type = 'market';
+  } else {
+    const lp = document.getElementById('limitPrice').value;
+    if (!lp) { showAlert('tradingAlert','error','Enter a limit price.'); return; }
+    body.type = 'limit';
+    body.time_in_force = 'gtc';
+    body.limit_price = lp;
+  }
+  try {
+    const order = await alpacaPost('orders', body);
+    logTrade(`✅ SELL ${ticker}: ${qty} shares ${type} order placed`);
+    showAlert('tradingSuccess','success', `✅ Sell order placed for ${qty} shares of ${ticker}`);
+    loadAccount();
+  } catch(e) {
+    showAlert('tradingAlert','error', `❌ Sell failed: ${e.message}`);
+    logTrade(`❌ SELL FAILED ${ticker}: ${e.message}`, true);
+  }
+}
+
+// ── Screener ───────────────────────────────────────────────────────────────
+// Signals computed client-side using yfinance data fetched via a CORS proxy
+// (uses Yahoo Finance's internal chart API for price/volume data)
+
+const DOW30 = ['AAPL','MSFT','AMZN','NVDA','JPM','V','UNH','WMT','HD','PG',
+               'MCD','KO','GS','HON','CRM','AXP','CAT','MRK','CVX','AMGN',
+               'IBM','TRV','JNJ','VZ','MMM','NKE','DIS','BA','CSCO','DOW'];
+
+const LARGE_CAP = ['AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','JPM','V',
+                   'UNH','XOM','LLY','JNJ','WMT','MA','PG','HD','CVX','MRK',
+                   'AVGO','COST','ABBV','PEP','KO','ADBE','CRM','TMO','ACN','MCD','BAC'];
+
+const FULL_UNIVERSE = [...new Set([...DOW30, ...LARGE_CAP,
+  'AMD','QCOM','PLTR','NET','DDOG','CRWD','SNOW','ENPH','DXCM','SHOP',
+  'SQ','COIN','ROKU','RBLX','DASH','MDB','GTLB','PATH','BILL','AFRM',
+  'CVS','CI','DGX','BSX','EW','IDXX','SLB','OXY','DVN','WFC','C','COF',
+  'NKE','TGT','LULU','BURL','YUM','CMG','EL','SPGI','BLK','ISRG','GILD'])];
+
+async function fetchYahooData(ticker) {
+  // Yahoo Finance chart API (public, no key needed)
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=6mo`;
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const d = await r.json();
+  const result = d?.chart?.result?.[0];
+  if (!result) return null;
+  const timestamps = result.timestamp;
+  const q = result.indicators.quote[0];
+  return { timestamps, close: q.close, volume: q.volume, high: q.high, low: q.low };
+}
+
+function computeRSI(closes, period = 14) {
+  if (closes.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i-1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  let avgGain = gains / period, avgLoss = losses / period;
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i-1];
+    avgGain = (avgGain * (period-1) + Math.max(diff,0)) / period;
+    avgLoss = (avgLoss * (period-1) + Math.max(-diff,0)) / period;
+  }
+  if (avgLoss === 0) return 100;
+  return 100 - 100 / (1 + avgGain / avgLoss);
+}
+
+function computeMACD(closes) {
+  const ema = (arr, n) => {
+    const k = 2 / (n + 1);
+    let e = arr[0];
+    return arr.map((v,i) => i===0 ? e : (e = v * k + e * (1-k)));
+  };
+  const ema12 = ema(closes, 12);
+  const ema26 = ema(closes, 26);
+  const macdLine = ema12.map((v,i) => v - ema26[i]);
+  const signal   = ema(macdLine, 9);
+  return { macdLine, signal };
+}
+
+function scoreStock(ticker, data) {
+  const { close, volume, high, low } = data;
+  const n = close.length;
+  if (n < 30) return null;
+
+  const validClose  = close.filter(Boolean);
+  const validVol    = volume.filter(Boolean);
+  if (validClose.length < 30) return null;
+
+  const price    = validClose[validClose.length - 1];
+  const prevPrice= validClose[validClose.length - 2];
+  const pricePct = (price - prevPrice) / prevPrice * 100;
+
+  // RSI
+  const rsiNow  = computeRSI(validClose);
+  const rsiPrev = computeRSI(validClose.slice(0,-1));
+
+  // MACD
+  const { macdLine, signal } = computeMACD(validClose);
+  const macdNow  = macdLine[macdLine.length-1];
+  const macdPrev = macdLine[macdLine.length-2];
+  const sigNow   = signal[signal.length-1];
+  const sigPrev  = signal[signal.length-2];
+
+  // Volume
+  const volNow  = validVol[validVol.length-1] || 0;
+  const vol20   = validVol.slice(-21,-1).filter(Boolean);
+  const volAvg  = vol20.length ? vol20.reduce((a,b)=>a+b,0)/vol20.length : 1;
+  const volRatio= volNow / volAvg;
+
+  // 52w range
+  const recentHigh = Math.max(...high.filter(Boolean).slice(-252));
+  const recentLow  = Math.min(...low.filter(Boolean).slice(-252));
+  const pctFrom52Low = (price - recentLow) / recentLow * 100;
+
+  // MA20
+  const ma20 = validClose.slice(-20).reduce((a,b)=>a+b,0)/20;
+
+  let score = 0;
+  const reasons = [];
+
+  if (rsiPrev < 35 && rsiNow >= 35) { score += 1; reasons.push(`RSI recovery (${rsiNow.toFixed(1)})`); }
+  else if (rsiNow >= 35 && rsiNow <= 50) { score += 0.5; reasons.push(`RSI in recovery zone (${rsiNow.toFixed(1)})`); }
+
+  if (volRatio >= 2.0) { score += 1; reasons.push(`Volume surge (${volRatio.toFixed(1)}x avg)`); }
+  else if (volRatio >= 1.5) { score += 0.5; reasons.push(`Above-avg volume (${volRatio.toFixed(1)}x)`); }
+
+  if (macdPrev < sigPrev && macdNow > sigNow) { score += 1; reasons.push('Bullish MACD crossover'); }
+  else if (macdNow > sigNow && macdNow > 0) { score += 0.5; reasons.push('MACD bullish & above zero'); }
+
+  if (pctFrom52Low > 0 && pctFrom52Low < 20 && pricePct > 0) { score += 1; reasons.push(`Bouncing off 52w low (+${pctFrom52Low.toFixed(1)}%)`); }
+
+  if (pricePct >= 1.0 && pricePct <= 8.0) { score += 1; reasons.push(`Healthy momentum (+${pricePct.toFixed(1)}%)`); }
+  else if (pricePct > 0 && pricePct < 1.0) { score += 0.25; reasons.push(`Slight upward move`); }
+
+  if (rsiNow > 75) { score -= 1; reasons.push('⚠️ RSI overbought'); }
+  if (price > ma20 * 1.10) { score -= 0.5; reasons.push('⚠️ Extended above MA20'); }
+
+  score = Math.max(0, score);
+  return { ticker, price, score, rsi: rsiNow, volRatio, pricePct, macdNow, reasons };
+}
+
+async function runScreener() {
+  const minScore = parseFloat(document.getElementById('minScore').value) || 2;
+  const minPrice = parseFloat(document.getElementById('minPrice').value) || 5;
+  const maxPrice = parseFloat(document.getElementById('maxPrice').value) || 10000;
+  const universeKey = document.getElementById('universe').value;
+  const universe = universeKey === 'sp30' ? DOW30 : universeKey === 'large' ? LARGE_CAP : FULL_UNIVERSE;
+
+  document.getElementById('screenerLoader').classList.add('show');
+  document.getElementById('screenerResults').innerHTML = '';
+  document.getElementById('screenerAlert').classList.remove('show');
+  document.getElementById('runBtn').disabled = true;
+
+  const results = [];
+  let scanned = 0;
+
+  // Fetch in small batches to avoid rate limiting
+  const BATCH = 5;
+  for (let i = 0; i < universe.length; i += BATCH) {
+    const batch = universe.slice(i, i + BATCH);
+    await Promise.all(batch.map(async ticker => {
+      try {
+        const data = await fetchYahooData(ticker);
+        if (!data) return;
+        const s = scoreStock(ticker, data);
+        if (!s) return;
+        if (s.price < minPrice || s.price > maxPrice) return;
+        if (s.score >= minScore) results.push(s);
+      } catch(_) {}
+    }));
+    scanned += batch.length;
+    document.getElementById('screenerLoader').querySelector('div:last-child').textContent =
+      `Scanning stocks & computing technical indicators… ${scanned}/${universe.length}`;
+    await new Promise(r => setTimeout(r, 200)); // small delay between batches
+  }
+
+  document.getElementById('screenerLoader').classList.remove('show');
+  document.getElementById('runBtn').disabled = false;
+
+  results.sort((a,b) => b.score - a.score);
+  renderScreenerResults(results, minScore);
+}
+
+function renderScreenerResults(results, minScore) {
+  const el = document.getElementById('screenerResults');
+  if (!results.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">😶</div><p>No stocks met the minimum score of ${minScore}. Try lowering the filter.</p></div>`;
+    return;
+  }
+
+  const maxScore = 5;
+  el.innerHTML = `
+  <div class="section-header">
+    <div style="font-size:15px;font-weight:600;">${results.length} Candidates Found</div>
+    <div style="font-size:12px;color:var(--muted);">Sorted by composite signal score</div>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>Ticker</th>
+      <th>Price</th>
+      <th>Score</th>
+      <th>RSI</th>
+      <th>Vol Ratio</th>
+      <th>Day %</th>
+      <th>Signals</th>
+      <th>Action</th>
+    </tr></thead>
+    <tbody>
+      ${results.map((r,i) => {
+        const barPct = (r.score / maxScore) * 100;
+        const barColor = r.score >= 3 ? '#3fb950' : r.score >= 2 ? '#d29922' : '#8b949e';
+        const dayColor = r.pricePct > 0 ? 'var(--green)' : 'var(--red)';
+        const pills = r.reasons.map(reason =>
+          `<span class="sig-pill ${reason.includes('⚠️') ? 'warn' : ''}">${reason}</span>`
+        ).join('');
+        return `
+        <tr>
+          <td style="color:var(--muted)">${i+1}</td>
+          <td><strong>${r.ticker}</strong></td>
+          <td>$${r.price.toFixed(2)}</td>
+          <td>
+            <div class="score-wrap">
+              <div class="score-bar">
+                <div class="score-fill" style="width:${barPct}%;background:${barColor}"></div>
+              </div>
+              <strong style="color:${barColor};min-width:24px">${r.score.toFixed(1)}</strong>
+            </div>
+          </td>
+          <td style="color:${r.rsi<35?'var(--green)':r.rsi>70?'var(--red)':'var(--text)'}">${r.rsi.toFixed(1)}</td>
+          <td style="color:${r.volRatio>=2?'var(--green)':'var(--text)'}">${r.volRatio.toFixed(2)}x</td>
+          <td style="color:${dayColor}">${r.pricePct>0?'+':''}${r.pricePct.toFixed(2)}%</td>
+          <td><div class="signals">${pills}</div></td>
+          <td>
+            <button class="btn btn-green btn-sm" onclick="prefillTrade('${r.ticker}','${r.price.toFixed(2)}')">
+              Buy
+            </button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+    ⚠️ <strong>Disclaimer:</strong> These signals are for educational purposes only. Technical signals do not guarantee future price movements. Always do your own research before trading.
+  </div>`;
+}
+
+function prefillTrade(ticker, price) {
+  switchTab('trading');
+  document.querySelectorAll('.tab')[1].classList.add('active');
+  document.querySelectorAll('.tab')[0].classList.remove('active');
+  document.getElementById('buyTicker').value = ticker;
+  const defaultAmt = localStorage.getItem('max_per_trade') || '1000';
+  document.getElementById('buyAmount').value = defaultAmt;
+  const defaultTarget = localStorage.getItem('default_target') || '15';
+  document.getElementById('targetPct').value = defaultTarget;
+  showAlert('tradingSuccess','success',`✅ Pre-filled with ${ticker} @ ~$${price}. Review and confirm before buying.`);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = `alert ${type} show`;
+  el.textContent = msg;
+  setTimeout(() => el.classList.remove('show'), 8000);
+}
+
+function logTrade(msg, isError = false) {
+  const log = document.getElementById('tradeLog');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (isError ? ' err' : '');
+  const time = new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  line.textContent = `[${time}] ${msg}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Initial load
+loadAccount();
+</script>
+</body>
+</html>
